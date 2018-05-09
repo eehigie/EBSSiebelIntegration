@@ -41,12 +41,12 @@ import com.plexadasi.order.SalesOrder;
 import com.plexadasi.order.PurchaseOrder;
 import com.plexadasi.order.PurchaseOrderInventory;
 import com.siebel.data.SiebelException;
-import item.Items;
+//import item.Items;
 import java.net.ConnectException;
 import java.sql.ResultSet;
 import java.text.ParseException;
 import java.util.List;
-import java.util.logging.Logger;
+//import java.util.logging.Logger;
 
 
 
@@ -73,7 +73,7 @@ public class EBSSiebelIntegration extends SiebelBusinessService{
     private static String hIP = "";
     private static String logFile = "";
     private static String vlogFile = "";
-    private int customerTrxInvoiceNumber;
+   // private int customerTrxInvoiceNumber;
     private String ebsuserid;
     private String ebsuserresp;
     private String ebsrespapplid;
@@ -86,9 +86,9 @@ public class EBSSiebelIntegration extends SiebelBusinessService{
     private String onHandLogFile;
     private StringWriter errors = new StringWriter();
     private File logfile;
-    private String strx_id;
-    private static String main_strx_id;
-    private String invoiceId;
+    //private String strx_id;
+    //private static String main_strx_id;
+    //private String invoiceId;
     private String customerNumber;
     private String customerName;
     private String customerClassification;
@@ -613,11 +613,13 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                 SalesOrderInventory soi = new SalesOrderInventory();
                 MyLogging.log(Level.INFO,"order_number:"+input.getProperty("order_number")); 
                 soi.setSiebelOrderId(input.getProperty("order_number"));                
-                soi.setOrderId(1001);
+                
+                //soi.setOrderId(1001);
+                
                 MyLogging.log(Level.INFO,"ebs_customer_id:"+input.getProperty("ebs_customer_id"));
                 soi.setSoldToOrgId(Integer.parseInt(input.getProperty("ebs_customer_id"))); 
                 
-                if(input.getProperty("ship_to_id") == ""){
+                if(input.getProperty("ship_to_id").isEmpty()){
                     SiebelService ssv = new SiebelService(sdb);                
                     String ebscustomerid = input.getProperty("ebs_customer_id");
                     MyLogging.log(Level.INFO,"ebs_customer_id:"+input.getProperty("ebs_customer_id"));
@@ -651,6 +653,9 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                 //soi.setPriceId(Integer.parseInt(input.getProperty("price_id")));
                 MyLogging.log(Level.INFO,"currency_code:"+input.getProperty("currency_code"));
                 soi.setTransactionCode(input.getProperty("currency_code"));
+                
+                MyLogging.log(Level.INFO, "type is :"+input.getProperty("type"));
+                soi.setType(input.getProperty("type"));
                 
                 soi.setStatusCode("ENTERED");
                 soi.setPurchaseOrderNumber(input.getProperty("order_number"));
@@ -743,12 +748,96 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             ex.printStackTrace(new PrintWriter(errors));
             MyLogging.log(Level.SEVERE, "ERROR:CreatePurchaseOrder:cannot close ebs db connection:"+ errors.toString());
         }
-        
-
-        
+                
     }
         
-        
+    
+    if(MethodName.equalsIgnoreCase("ReturnSalesOrder")){
+        MyLogging.log(Level.INFO,"=================IN ReturnSalesOrder=================");    
+        try {
+                SiebelDataBean sdb = ApplicationsConnection.connectSiebelServer();
+                Connection conn = ApplicationsConnection.connectToEBSDatabase();
+                                
+                SalesOrderInventory soi = new SalesOrderInventory();
+                MyLogging.log(Level.INFO,"order_number:"+input.getProperty("order_number")); 
+                soi.setSiebelOrderId(input.getProperty("order_number"));                
+                //soi.setOrderId(1041);
+                MyLogging.log(Level.INFO,"ebs_customer_id:"+input.getProperty("ebs_customer_id"));
+                soi.setSoldToOrgId(Integer.parseInt(input.getProperty("ebs_customer_id"))); 
+                MyLogging.log(Level.INFO, "type is :"+input.getProperty("type"));
+                soi.setType(input.getProperty("type"));                
+                
+                MyLogging.log(Level.INFO,"ship_to_id:"+input.getProperty("ship_to_id"));
+                if(!input.getProperty("ship_to_id").isEmpty()){
+                    soi.setShipToOrgId(Integer.parseInt(input.getProperty("ship_to_id")));                
+                }     
+                
+                MyLogging.log(Level.INFO,"bill_to_id:"+input.getProperty("bill_to_id"));
+                if(!input.getProperty("bill_to_id").isEmpty()){
+                    soi.setInvoiceId(Integer.parseInt(input.getProperty("bill_to_id")));
+                }            
+                
+                MyLogging.log(Level.INFO,"warehouse_location_id:"+input.getProperty("warehouse_location_id"));
+                if(!input.getProperty("warehouse_location_id").isEmpty()){
+                    soi.setSoldFromId(Integer.parseInt(input.getProperty("warehouse_location_id")));
+                } 
+                
+                MyLogging.log(Level.INFO,"sales_rep_id:"+input.getProperty("sales_rep_id"));
+                if(!input.getProperty("sales_rep_id").isEmpty()){
+                    soi.setSalesRepId(Integer.parseInt(input.getProperty("sales_rep_id")));
+                }
+                                                
+                MyLogging.log(Level.INFO,"currency_code:"+input.getProperty("currency_code"));
+                soi.setTransactionCode(input.getProperty("currency_code"));
+                
+                soi.setStatusCode("ENTERED");
+                soi.setPurchaseOrderNumber(input.getProperty("order_number"));
+                soi.setSourceId(0);
+                SalesOrder sou = new SalesOrder();
+                MyLogging.log(Level.INFO,"Invoking Return Sales Order Invoke Method");
+                sou.doInvoke(soi,sdb,conn);
+                MyLogging.log(Level.INFO,"Return Sales Order Invoke Method Finished");
+                MyLogging.log(Level.INFO,"Getting return values .....");
+                List<String> rm = sou.getReturnMessages();
+                String rs = sou.getReturnStatus();
+                MyLogging.log(Level.INFO,"Return Status: "+rs );
+                String fsc = sou.getFlowStatusCode();
+                MyLogging.log(Level.INFO,"Status Code: "+fsc );
+                int order_number = sou.getOrderNumber();                
+                MyLogging.log(Level.INFO,"order_number: "+order_number);
+                String message = "";
+                String RMA = "";
+                //int num = 0;
+                
+                if(fsc.equalsIgnoreCase("BOOKED")){                                        
+                    message = " EBS Order number is "+order_number;
+                    RMA  = "RMA";
+                }
+                MyLogging.log(Level.INFO,"message: "+message );
+                output.setProperty("STATUS_CODE", RMA);
+                output.setProperty("MESSAGE", message);
+                output.setProperty("ORDER_NUM", String.valueOf(order_number));
+                sdb.logoff();
+            } catch (IOException ex) {
+                ex.printStackTrace(new PrintWriter(errors));
+                MyLogging.log(Level.SEVERE, "ERROR:ReturnSalesOrder:creating siebel server object:"+ errors.toString());
+            } catch (SiebelException ex) {
+                ex.printStackTrace(new PrintWriter(errors));
+                MyLogging.log(Level.SEVERE, "ERROR:ReturnSalesOrder: siebel server logoff failed:"+ errors.toString());
+            }finally{                              
+                if(conn != null){
+                    try{
+                        conn.close();
+                    }catch (SQLException ex) {
+                        ex.printStackTrace(new PrintWriter(errors));
+                        MyLogging.log(Level.SEVERE, "ERROR:ReturnSalesOrder:Not able to close connection object:"+ errors.toString());
+                    }
+                } 
+                
+            }                        
+    }
+
+    
     if(MethodName.equalsIgnoreCase("GetItemLocatorOld")){
         MyLogging.log(Level.INFO, "In GetItemLocator");
         MyLogging.log(Level.INFO, "Item Number is: "+input.getProperty("item_number"));
@@ -1090,10 +1179,22 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             //ns.doInvokeMethod("CallOnHandQty", input, output);
             //input.setProperty("order_num","1-4861761");
             //ns.doInvokeMethod("CheckPurchaseOrderStatus", input, output);
-            input.setProperty("partnumber", "A2044700294");            
+            /*input.setProperty("partnumber", "A2044700294");            
             input.setProperty("lotid","123");
             input.setProperty("ordernumber","1-42776238");            
-            ns.doInvokeMethod("SalesOrderItemStatus", input, output);
+            ns.doInvokeMethod("SalesOrderItemStatus", input, output);*/
+            
+            input.setProperty("order_number","1-58402856");
+            input.setProperty("ebs_customer_id","54093");
+            input.setProperty("ship_to_id","17134");
+            input.setProperty("bill_to_id","17133");
+            input.setProperty("type","return_order");
+            //input.setProperty("ship_to_id","");
+            //input.setProperty("bill_to_id","");
+            input.setProperty("warehouse_location_id","123");
+            input.setProperty("sales_rep_id","100000040");
+            input.setProperty("currency_code","NGN");
+            ns.doInvokeMethod("ReturnSalesOrder", input, output);
         }
         catch (Exception ex) {
             StringWriter errors = new StringWriter();

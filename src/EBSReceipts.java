@@ -93,7 +93,7 @@ public class EBSReceipts {
     public void getCustReceipts() throws SQLException {
         MyLogging.log(Level.INFO, "In getCustReceipts");
         CallableStatement callablestatement = null;
-        String RecProc = "{call PlexGetReceiptsByCustID(?,?,?,?,?,?,?,?)}";
+        String RecProc = "{call c(?,?,?,?,?,?,?,?)}";
         SiebelPropertySet sps = new SiebelPropertySet();
         try {
             //log.debug("Calling Strored Procedure...");
