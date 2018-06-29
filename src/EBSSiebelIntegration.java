@@ -950,7 +950,9 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
         SalesOrder ea = new SalesOrder();
         try{
             MyLogging.log(Level.INFO, "Calling Cancel Sales Order=========");
-            ea.cancelOrder(ebs_conn, Integer.parseInt(order_number));     
+            ea.cancelOrder(ebs_conn, Integer.parseInt(order_number));
+            String return_status = ea.getReturnStatus();
+            
             MyLogging.log(Level.INFO, "Cancel Sales Order Done=========");
             if(ebs_conn != null){
                 ebs_conn.close();
