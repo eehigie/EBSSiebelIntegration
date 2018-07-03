@@ -58,9 +58,9 @@ public class SiebelCSV {
             
             
             writer = new FileWriter(filePath);
-            writer.append("# PLX Price List Item");            
+            writer.append("# PLX Price List Items Update");            
             writer.append('\n');            
-            writer.append("# PLX Price List Item.Id,PLX Price List Item.PLX MC Id,Price List Item.PLX Exch Market Code");
+            writer.append("# Price List Item.Id,Price List Item.PLX MC Id,Price List Item.PLX Exch Market Code");
             writer.append('\n');
             
             MyLogging.log(Level.INFO, "Connecting to Siebel...");            
