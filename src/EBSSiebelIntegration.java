@@ -1053,10 +1053,30 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
         } catch (SQLException ex) {
                 ex.printStackTrace(new PrintWriter(errors));
                 MyLogging.log(Level.SEVERE, "SQLException in GetCustomerEBSPayments :: "+errors);
+        }                          
+    }
+    
+    if (MethodName.equalsIgnoreCase("RefreshPrices")) {
+        MyLogging.log(Level.INFO, "METHOD:==========RefreshPrices==============");
+        String priceListId = input.getProperty("PriceListId");
+	String mcId = input.getProperty("MCId");
+	String filePath = input.getProperty("FileString");
+        MyLogging.log(Level.INFO, "mcId...:"+mcId);   
+        MyLogging.log(Level.INFO, "filePath...:"+filePath);
+        MyLogging.log(Level.INFO, "priceListId...:"+priceListId);
+        try {
+            SiebelCSV scsv = new SiebelCSV();
+            SiebelDataBean sdb = ApplicationsConnection.connectSiebelServer();  
+            scsv.WriteSiebelDataToCSV(priceListId,mcId,filePath,sdb);  
+            scsv.UpdateRecordsWithCSVFile(filePath, sdb);
+            sdb.logoff();
+        } catch (IOException ex) {
+            ex.printStackTrace(new PrintWriter(errors));                                                            
+            MyLogging.log(Level.SEVERE, "RefreshPrices ERROR::IOException....."+ errors.toString());
+        } catch (SiebelException ex) {
+            ex.printStackTrace(new PrintWriter(errors));                                                            
+            MyLogging.log(Level.SEVERE, "RefreshPrices ERROR::SiebelException....."+ errors.toString());
         }
-        
-           
-        
     }
     
 }
@@ -1186,7 +1206,7 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             input.setProperty("ordernumber","1-42776238");            
             ns.doInvokeMethod("SalesOrderItemStatus", input, output);*/
             
-            input.setProperty("order_number","1-58402856");
+            /*input.setProperty("order_number","1-58402856");
             input.setProperty("ebs_customer_id","54093");
             input.setProperty("ship_to_id","17134");
             input.setProperty("bill_to_id","17133");
@@ -1196,7 +1216,11 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             input.setProperty("warehouse_location_id","123");
             input.setProperty("sales_rep_id","100000040");
             input.setProperty("currency_code","NGN");
-            ns.doInvokeMethod("ReturnSalesOrder", input, output);
+            ns.doInvokeMethod("ReturnSalesOrder", input, output);*/
+            input.setProperty("FileString","123");
+            input.setProperty("PriceListId","100000040");
+            input.setProperty("MCId","NGN");
+            ns.doInvokeMethod("RefreshPrices", input, output);
         }
         catch (Exception ex) {
             StringWriter errors = new StringWriter();
