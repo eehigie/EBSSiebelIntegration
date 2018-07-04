@@ -5,7 +5,6 @@
  */
 
 
-import com.opencsv.CSVWriter; 
 import com.siebel.data.SiebelBusComp;
 import com.siebel.data.SiebelBusObject;
 import com.siebel.data.SiebelDataBean;
@@ -18,7 +17,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 //import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 /**
@@ -63,7 +61,7 @@ public class SiebelCSV {
             writer.append("# Price List Item.Id,Price List Item.PLX MC Id,Price List Item.PLX Exch Market Code");
             writer.append('\n');
             
-            MyLogging.log(Level.INFO, "Connecting to Siebel...");            
+            //MyLogging.log(Level.INFO, "Connecting to Siebel...");            
             SiebelBusObject priceListBO =  sdb.getBusObject("Admin Price List");
             SiebelBusComp priceListItem = priceListBO.getBusComp("Price List Item");
             priceListItem.activateField("PLX Exch Market Code");
@@ -113,6 +111,7 @@ public class SiebelCSV {
     
     public void UpdateRecordsWithCSVFile(String csvFile, SiebelDataBean sdb) throws SiebelException{
         
+        MyLogging.log(Level.INFO, "Start updating records with CSV file... ");
         SiebelService wkflwService = sdb.getService("Workflow Process Manager");
         SiebelPropertySet inPS = sdb.newPropertySet();
         SiebelPropertySet outPS = sdb.newPropertySet();
@@ -120,42 +119,28 @@ public class SiebelCSV {
         inPS.setProperty("ProcessName", "PLX Price List Item Update Workflow");
         inPS.setProperty("FileName", csvFile);
         
+        MyLogging.log(Level.INFO, "Workflow called ... ");
         wkflwService.invokeMethod("RunProcess", inPS, outPS);
-                        
+        MyLogging.log(Level.INFO, "Update finished");               
     }
     
-    private  String csvWriterAll(List<String[]> stringArray, String filePath) throws Exception {
-        CSVWriter writer = new CSVWriter(new FileWriter(filePath));
-        writer.writeAll(stringArray);
-        writer.close();
-        //return Helpers.readFile(path);
-        return "";
-    }
-    
-    public void WriteToCSV(String[] siebelData, CSVWriter csvWriter){        
-        try {
-            csvWriter.writeNext(siebelData);
-            csvWriter.close();
-        } catch (IOException ex) {
-            ex.printStackTrace(new PrintWriter(errors));                                                            
-            MyLogging.log(Level.SEVERE, "WriteToCSV::IOException::ERROR::....."+ errors.toString());
-        }
-    }
+
     
     public static void main(String[] args) {
         
-        String priceListId = args[0];
+        /*String priceListId = args[0];
 	String mcId = args[1];
 	String filePath = args[2];
         MyLogging.log(Level.INFO, "mcId...:"+mcId);   
-        MyLogging.log(Level.INFO, "filePath...:"+filePath);
+        MyLogging.log(Level.INFO, "filePath...:"+filePath);*/
         
         try {
             SiebelCSV scsv = new SiebelCSV();
             SiebelDataBean sdb = ApplicationsConnection.connectSiebelServer();
             //PrintWriter writer = new PrintWriter(filePath, "UTF-8");
-            scsv.WriteSiebelDataToCSV(priceListId,mcId,filePath,sdb);
+            //scsv.WriteSiebelDataToCSV(priceListId,mcId,filePath,sdb);
             //scsv.UpdateRecordsWithCSVFile(filePath, sdb);
+            scsv.UpdateRecordsWithCSVFile("/usr/app/siebel/intg/price_files/07072018.csv", sdb);
             sdb.logoff();
             //PrintWriter writer = new PrintWriter("/usr/app/siebel/intg/price_files/price_files.csv", "UTF-8");
             //new SiebelCSV().WriteSiebelDataToCSV("1-82OPI","1-564821","/usr/app/siebel/intg/price_files/price_files.csv");

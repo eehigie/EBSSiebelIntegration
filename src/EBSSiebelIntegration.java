@@ -46,6 +46,7 @@ import java.net.ConnectException;
 import java.sql.ResultSet;
 import java.text.ParseException;
 import java.util.List;
+import java.util.logging.Logger;
 //import java.util.logging.Logger;
 
 
@@ -1061,21 +1062,28 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
         String priceListId = input.getProperty("PriceListId");
 	String mcId = input.getProperty("MCId");
 	String filePath = input.getProperty("FileString");
+        SiebelDataBean sdb = null;// = ApplicationsConnection.connectSiebelServer();
         MyLogging.log(Level.INFO, "mcId...:"+mcId);   
         MyLogging.log(Level.INFO, "filePath...:"+filePath);
         MyLogging.log(Level.INFO, "priceListId...:"+priceListId);
         try {
-            SiebelCSV scsv = new SiebelCSV();
-            SiebelDataBean sdb = ApplicationsConnection.connectSiebelServer();  
+            SiebelCSV scsv = new SiebelCSV();   
+            sdb = ApplicationsConnection.connectSiebelServer();
             scsv.WriteSiebelDataToCSV(priceListId,mcId,filePath,sdb);  
-            scsv.UpdateRecordsWithCSVFile(filePath, sdb);
-            sdb.logoff();
-        } catch (IOException ex) {
+            //scsv.UpdateRecordsWithCSVFile(filePath, sdb);            
+        } catch(FileNotFoundException ex){
+            ex.printStackTrace(new PrintWriter(errors));                                                            
+            MyLogging.log(Level.SEVERE, "RefreshPrices ERROR::FileNotFoundException....."+ errors.toString());
+        } catch(IOException ex){
             ex.printStackTrace(new PrintWriter(errors));                                                            
             MyLogging.log(Level.SEVERE, "RefreshPrices ERROR::IOException....."+ errors.toString());
-        } catch (SiebelException ex) {
-            ex.printStackTrace(new PrintWriter(errors));                                                            
-            MyLogging.log(Level.SEVERE, "RefreshPrices ERROR::SiebelException....."+ errors.toString());
+        } finally{
+            try {
+                sdb.logoff();
+            } catch (SiebelException ex) {
+                ex.printStackTrace(new PrintWriter(errors));                                                            
+                MyLogging.log(Level.SEVERE, "RefreshPrices ERROR::SiebelException....."+ errors.toString());
+            }
         }
     }
     
@@ -1217,9 +1225,9 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             input.setProperty("sales_rep_id","100000040");
             input.setProperty("currency_code","NGN");
             ns.doInvokeMethod("ReturnSalesOrder", input, output);*/
-            input.setProperty("FileString","123");
-            input.setProperty("PriceListId","100000040");
-            input.setProperty("MCId","NGN");
+            input.setProperty("FileString","C:\\TEMP\\docs\\07072018.csv");
+            input.setProperty("PriceListId","1-KCMQ6");
+            input.setProperty("MCId","1-LBDBD");
             ns.doInvokeMethod("RefreshPrices", input, output);
         }
         catch (Exception ex) {
