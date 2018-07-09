@@ -43,18 +43,7 @@ public class SiebelCSV {
             String txtLine; 
             boolean isRec;
             MyLogging.log(Level.INFO, "McId...:"+McId);
-            //List<String> siebelDataArray = new ArrayList<String>();
-            //siebelDataArray.add(0, "# Price List Item");
-            //siebelDataArray.add(1, "# Price List Item.Id,Price List Item.PLX MC Id");
-            
-            //CSVWriter csvWriter;
-            //csvWriter = new CSVWriter(new FileWriter(filePath),CSVWriter.DEFAULT_SEPARATOR,CSVWriter.NO_QUOTE_CHARACTER);            
-            //csvWriter = new CSVWriter(new FileWriter(filePath),CSVWriter.NO_QUOTE_CHARACTER);            
-            //csvWriter.writeNext(new String[]{"# PLX Price List Item"});
-            //csvWriter.writeNext(new String[]{"# PLX Price List Item.Id,PLX Price List Item.PLX MC Id,Price List Item.PLX Exch Market Code"});
-            
-            
-            
+                                                
             writer = new FileWriter(filePath);
             writer.append("# PLX Price List Items Update");            
             writer.append('\n');            
@@ -82,10 +71,13 @@ public class SiebelCSV {
                 writer.append('\n');
                 isRec = priceListItem.nextRecord();
                 cnt = cnt +1;
-                MyLogging.log(Level.INFO, "count::"+cnt);
-                MyLogging.log(Level.INFO, "txtLine... "+txtLine);
+                if(cnt < 10){
+                    MyLogging.log(Level.INFO, "count::"+cnt);
+                    MyLogging.log(Level.INFO, "txtLine... "+txtLine);
+                }
+                
             }
-                        
+            MyLogging.log(Level.INFO, "Final count::"+cnt);            
             //csvWriter.close();          
             MyLogging.log(Level.INFO, "CSV created");
         } catch (IOException ex) {
