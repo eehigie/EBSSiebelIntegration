@@ -46,7 +46,7 @@ import java.net.ConnectException;
 import java.sql.ResultSet;
 import java.text.ParseException;
 import java.util.List;
-import java.util.logging.Logger;
+//import java.util.logging.Logger;
 //import java.util.logging.Logger;
 
 
@@ -98,6 +98,9 @@ public class EBSSiebelIntegration extends SiebelBusinessService{
 @Override
 public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPropertySet output) throws SiebelBusinessServiceException {
         String err_msg;
+        SiebelDataBean sdb = null; 
+        Connection ebs_conn = null;
+        Connection siebel_conn = null;
         try {
             ip = InetAddress.getLocalHost();
             hIP = ip.getHostAddress();
@@ -140,10 +143,11 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             this.warehouse_id = input.getProperty("warehouse_id");
             MyLogging.log(Level.INFO, "Item_Id: {0}"+ this.Item_Id);
             MyLogging.log(Level.INFO, "item_number: {0}"+ this.item_number);            
-            MyLogging.log(Level.INFO, "warehouse_id: {0}"+ this.warehouse_id);            
+            MyLogging.log(Level.INFO, "warehouse_id: {0}"+ this.warehouse_id);   
+            siebel_conn = ApplicationsConnection.connectToSiebelDatabase();
             try {
                 //Connection ebs_conn = ApplicationsConnection.connectToEBSDatabase();
-                Connection siebel_conn = ApplicationsConnection.connectToSiebelDatabase();
+                //Connection siebel_conn = ApplicationsConnection.connectToSiebelDatabase();
                 MyLogging.log(Level.INFO, "Calling :EBSOnHandQty");
                 EBSOnHandQty ehq = new EBSOnHandQty(this.Item_Id, this.Org_Id);
                 MyLogging.log(Level.INFO, "Calling :callViewQuery");
@@ -160,15 +164,25 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             catch (Exception e) {
                 e.printStackTrace(new PrintWriter(errors));         
                 MyLogging.log(Level.SEVERE, "ERROR IN CallOnHandQty Method:"+ errors.toString());                
+            }finally{
+                if(siebel_conn != null){
+                    try {
+                        siebel_conn.close();
+                    } catch (Exception ex) {
+                        ex.printStackTrace(new PrintWriter(errors));   
+                        MyLogging.log(Level.SEVERE, "ERROR IN Closing DB Connection Method:"+ errors.toString());
+                    }
+                }
             }           
             MyLogging.log(Level.INFO, "CallOnHandQty End");            
         }
         
         if (MethodName.equalsIgnoreCase("CheckInvoicePayments")) {
             MyLogging.log(Level.INFO, "============CheckInvoicePayments Start===============");            
-            String ebsInvoiceNumber = input.getProperty("EBSInvoiceNumber");                                  
+            String ebsInvoiceNumber = input.getProperty("EBSInvoiceNumber");
+            siebel_conn = ApplicationsConnection.connectToSiebelDatabase();
             try {                
-                Connection siebel_conn = ApplicationsConnection.connectToSiebelDatabase();
+                //Connection siebel_conn = ApplicationsConnection.connectToSiebelDatabase();
                 MyLogging.log(Level.INFO, "Calling :EBSOnHandQty");
                 EBSOnHandQty ehq = new EBSOnHandQty(this.Item_Id, this.Org_Id);
                 MyLogging.log(Level.INFO, "Calling :callViewQuery");
@@ -185,6 +199,15 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             catch (Exception e) {
                 e.printStackTrace(new PrintWriter(errors));         
                 MyLogging.log(Level.SEVERE, "ERROR IN CallOnHandQty Method:"+ errors.toString());                
+            }finally{
+                if(siebel_conn != null){
+                    try {
+                        siebel_conn.close();
+                    } catch (SQLException ex) {
+                        ex.printStackTrace(new PrintWriter(errors));   
+                        MyLogging.log(Level.SEVERE, "ERROR IN Closing DB Connection Method:"+ errors.toString());
+                    }
+                }
             }           
             MyLogging.log(Level.INFO, "CallOnHandQty End");            
         }
@@ -195,10 +218,9 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             String quoteId = input.getProperty("QuoteId");
             MyLogging.log(Level.INFO, "invoiceId::"+invoiceId);
             MyLogging.log(Level.INFO, "quoteId::"+quoteId);
-            try {                
-                
-                SiebelDataBean sdb = ApplicationsConnection.connectSiebelServer();
-                Connection ebs_conn = ApplicationsConnection.connectToEBSDatabase();
+            try {                                
+                sdb = ApplicationsConnection.connectSiebelServer();
+                ebs_conn = ApplicationsConnection.connectToEBSDatabase();
                 MyLogging.log(Level.INFO, "Calling :GetQuotePayments");
                 String RecProc = "{call plxGetReceiptsByInvId(?,?,?,?,?,?,?)}";            
                 CallableStatement callablestatement = ebs_conn.prepareCall(RecProc);
@@ -217,10 +239,28 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                 }
                 sdb.logoff();
             }
-            catch (Exception e) {
+            catch (Exception e) {                
                 e.printStackTrace(new PrintWriter(errors));         
                 MyLogging.log(Level.SEVERE, "ERROR IN GetQuotePayments Method:"+ errors.toString());                
-            }           
+            }finally{
+                if(ebs_conn != null){
+                    try {
+                        ebs_conn.close();
+                    } catch (SQLException ex) {
+                        ex.printStackTrace(new PrintWriter(errors));   
+                        MyLogging.log(Level.SEVERE, "ERROR IN Closing DB Connection Method:"+ errors.toString());
+                    }
+                }
+                if(sdb != null){
+                    try { 
+                        sdb.logoff();
+                    } catch (SiebelException ex) {
+                        ex.printStackTrace(new PrintWriter(errors)); 
+                        MyLogging.log(Level.SEVERE, "ERROR IN Closing SIEBEL Connection"+ errors.toString());
+                    }
+                }
+                
+            }         
             MyLogging.log(Level.INFO, "GetQuotePayments End");            
         }
         
@@ -228,9 +268,9 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             MyLogging.log(Level.INFO, "METHOD:=========CreateInvoice=========");                            
             try{
             
-                Connection ebsDBConn = ApplicationsConnection.connectToEBSDatabase();
-                SiebelDataBean ciSdbObj = ApplicationsConnection.connectSiebelServer();
-                SiebelService ssv = new SiebelService(ciSdbObj);
+                ebs_conn = ApplicationsConnection.connectToEBSDatabase();
+                sdb = ApplicationsConnection.connectSiebelServer();
+                SiebelService ssv = new SiebelService(sdb);
                 
                 
                 
@@ -284,11 +324,11 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                 
                 
                 if(!ssv.isThereShipToBillToId(siebelRowId, the_entity)){
-                    ssv.addLocationToCustomer(siebelRowId,ebscustomerid,the_entity,ebsDBConn);
+                    ssv.addLocationToCustomer(siebelRowId,ebscustomerid,the_entity,ebs_conn);
                 }
                 
                 
-                EBSData ed = new EBSData(ebsDBConn);
+                EBSData ed = new EBSData(ebs_conn);
                 MyLogging.log(Level.INFO, "3..");
                 
                 cust_trx_type_id = ed.getEBSCustTrxTypeId(custtrxtype);
@@ -311,7 +351,7 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                 invObj.setCustomerTrxTypeId(cust_trx_type_id);  
                 MyLogging.log(Level.INFO, "setCustomerTrxTypeId done..");                
                 MyLogging.log(Level.INFO, "Calling CreateInvoice.doInvoke ..");
-                int invoiceNumber = CreateInvoice.doInvoke(quote_id, invObj, "quote",ciSdbObj,ebsDBConn);
+                int invoiceNumber = CreateInvoice.doInvoke(quote_id, invObj, "quote",sdb,ebs_conn);
                 output.setProperty("customer_invoice_number", Integer.toString(invoiceNumber));
                 MyLogging.log(Level.INFO, "invoiceNumber: {0}" + invoiceNumber);
                 
@@ -340,7 +380,7 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                 MyLogging.log(Level.INFO, "Int trx_id: {0}" + trx_id);
                 MyLogging.log(Level.INFO, "trx_id: {0}" + Integer.toString(trx_id));
                 output.setProperty("customer_invoice_number", Integer.toString(trx_id));*/
-                ciSdbObj.logoff();
+                sdb.logoff();
                 if (cs != null) {
                     try{
                         cs.close();
@@ -349,9 +389,9 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                         MyLogging.log(Level.SEVERE, "SQLException: ERROR"+ errors.toString());
                     }
                 }
-                if (ebsDBConn != null) {
+                if (ebs_conn != null) {
                     try{
-                        ebsDBConn.close();
+                        ebs_conn.close();
                     }catch (SQLException ex){
                         ex.printStackTrace(new PrintWriter(errors));         
                         MyLogging.log(Level.SEVERE, "SQLException: ERROR"+ errors.toString());
@@ -366,6 +406,23 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             } catch (SiebelException ex) {
                 ex.printStackTrace(new PrintWriter(errors));
                 MyLogging.log(Level.SEVERE, "CreateInvoice: SiebelException:ERROR"+ errors.toString());
+            }finally{
+                if(ebs_conn != null){
+                    try {
+                        ebs_conn.close();
+                    } catch (SQLException ex) {
+                        ex.printStackTrace(new PrintWriter(errors));   
+                        MyLogging.log(Level.SEVERE, "ERROR IN Closing DB Connection Method:"+ errors.toString());
+                    }
+                }
+                if(sdb != null){
+                    try { 
+                        sdb.logoff();
+                    } catch (SiebelException ex) {
+                        ex.printStackTrace(new PrintWriter(errors)); 
+                        MyLogging.log(Level.SEVERE, "ERROR IN Closing SIEBEL Connection"+ errors.toString());
+                    }
+                }
             }
     }
         
@@ -431,8 +488,8 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             String Sebrespapplid = this.ebsrespapplid;
             String Sebtrxheaderid = this.ebstrxheaderid;
        
-            Connection conntn = ApplicationsConnection.connectToEBSDatabase();
-            SiebelDataBean sdb = null;
+            ebs_conn = ApplicationsConnection.connectToEBSDatabase();
+            //SiebelDataBean sdb = null;
             try {
                 sdb = ApplicationsConnection.connectSiebelServer();
                 
@@ -472,7 +529,7 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             MyLogging.log(Level.INFO, "Script: {0}" + sqlSCript);
             MyLogging.log(Level.INFO, "Calling sql script statement .....");
             try {
-                cs = conntn.prepareCall(sqlSCript);
+                cs = ebs_conn.prepareCall(sqlSCript);
                 cs.registerOutParameter(1, 4);
                 cs.registerOutParameter(2, 12);
                 cs.registerOutParameter(3, 4);
@@ -525,12 +582,12 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                     
                     // sdb = ApplicationsConnection.connectSiebelServer();
                     EBSAccount ebsa = new EBSAccount();
-                    ebsa.doInvoke(siebelId, Integer.toString(x_cust_account_id),siebelAccountType,sdb,conntn);
+                    ebsa.doInvoke(siebelId, Integer.toString(x_cust_account_id),siebelAccountType,sdb,ebs_conn);
                     ship_to_id = ebsa.getShipToId();
                     bill_to_id = ebsa.getBillToId();
                     
                     
-                    conntn.close();
+                    ebs_conn.close();
                     MyLogging.log(Level.INFO, "Customer Location Value:" + return_val);
                     output.setProperty("ebsCustomerLocation", Integer.toString(return_val));
                     output.setProperty("ebsShipToId", Integer.toString(ship_to_id));
@@ -571,13 +628,21 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                         MyLogging.log(Level.SEVERE, "Error in closing connection cs", errors.toString());                                                
                     }
                 }
-                if (conntn != null) {
+                if (ebs_conn != null) {
                     try {
-                        conntn.close();
+                        ebs_conn.close();
                     }
                     catch (SQLException ex) {
                         ex.printStackTrace(new PrintWriter(errors));
                         MyLogging.log(Level.SEVERE, "Error in closing connection conn", errors.toString());                                                
+                    }
+                }               
+                if(sdb != null){
+                    try { 
+                        sdb.logoff();
+                    } catch (SiebelException ex) {
+                        ex.printStackTrace(new PrintWriter(errors)); 
+                        MyLogging.log(Level.SEVERE, "ERROR IN Closing SIEBEL Connection"+ errors.toString());
                     }
                 }
             }
@@ -607,8 +672,8 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
     if(MethodName.equalsIgnoreCase("CreateSalesOrder")){
         MyLogging.log(Level.INFO,"=================IN CreateSalesOrder=================");    
         try {
-                SiebelDataBean sdb = ApplicationsConnection.connectSiebelServer();
-                Connection conn = ApplicationsConnection.connectToEBSDatabase();
+                sdb = ApplicationsConnection.connectSiebelServer();
+                ebs_conn = ApplicationsConnection.connectToEBSDatabase();
                 
                 
                 SalesOrderInventory soi = new SalesOrderInventory();
@@ -630,7 +695,7 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                     MyLogging.log(Level.INFO,"entity:"+entity);
                 
                     if(!ssv.isThereShipToBillToId(siebelRowId, entity)){
-                        ssv.addLocationToCustomer(siebelRowId,ebscustomerid,entity,conn);
+                        ssv.addLocationToCustomer(siebelRowId,ebscustomerid,entity,ebs_conn);
                     }
                 }
                 
@@ -663,7 +728,7 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                 soi.setSourceId(0);
                 SalesOrder sou = new SalesOrder();
                 MyLogging.log(Level.INFO,"Invokeing Sales Order Invoke Method");
-                sou.doInvoke(soi,sdb,conn);
+                sou.doInvoke(soi,sdb,ebs_conn);
                 MyLogging.log(Level.INFO,"Sales Order Invoke Method Finished");
                 MyLogging.log(Level.INFO,"Getting return values .....");
                 List<String> rm = sou.getReturnMessages();
@@ -700,14 +765,22 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                 ex.printStackTrace(new PrintWriter(errors));
                 MyLogging.log(Level.SEVERE, "ERROR:CreateSalesOrder: siebel server logoff failed:"+ errors.toString());
             }finally{                              
-                if(conn != null){
+                if(ebs_conn != null){
                     try{
-                        conn.close();
+                        ebs_conn.close();
                     }catch (SQLException ex) {
                         ex.printStackTrace(new PrintWriter(errors));
                         MyLogging.log(Level.SEVERE, "ERROR:CreateSalesOrder:Not able to close connection object:"+ errors.toString());
                     }
-                } 
+                }              
+                if(sdb != null){
+                    try { 
+                        sdb.logoff();
+                    } catch (SiebelException ex) {
+                        ex.printStackTrace(new PrintWriter(errors)); 
+                        MyLogging.log(Level.SEVERE, "ERROR IN Closing SIEBEL Connection"+ errors.toString());
+                    }
+                }
                 
             }                        
     }
@@ -715,8 +788,8 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
     if(MethodName.equalsIgnoreCase("CreatePurchaseOrder")){
         MyLogging.log(Level.INFO,"=================IN CreatePurchaseOrder=================");
         try{
-            Connection ebs = ApplicationsConnection.connectToEBSDatabase();
-            SiebelDataBean sb = ApplicationsConnection.connectSiebelServer();
+            ebs_conn = ApplicationsConnection.connectToEBSDatabase();
+            sdb = ApplicationsConnection.connectSiebelServer();
             PurchaseOrder pOrder = new PurchaseOrder();
             PurchaseOrderInventory poInventory = new PurchaseOrderInventory();
             String accountType = input.getProperty("AccountType");
@@ -732,10 +805,10 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             MyLogging.log(Level.INFO, "sourceId : "+sourceId);
             poInventory.setSourceId(Integer.parseInt(sourceId));
             MyLogging.log(Level.INFO, "Calling purchase order method");
-            pOrder.doInvoke(poInventory,sb, ebs);
+            pOrder.doInvoke(poInventory,sdb, ebs_conn);
             MyLogging.log(Level.INFO, "Purchase order method done");
-            sb.logoff();
-            ebs.close();
+            sdb.logoff();
+            ebs_conn.close();
         }catch(FileNotFoundException ex){
             ex.printStackTrace(new PrintWriter(errors));
             MyLogging.log(Level.SEVERE, "ERROR:CreatePurchaseOrder:filenotfoundexception:"+ errors.toString());
@@ -748,6 +821,23 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
         } catch (SQLException ex) {
             ex.printStackTrace(new PrintWriter(errors));
             MyLogging.log(Level.SEVERE, "ERROR:CreatePurchaseOrder:cannot close ebs db connection:"+ errors.toString());
+        }finally{
+            if(ebs_conn != null){
+                    try {
+                        ebs_conn.close();
+                    } catch (SQLException ex) {
+                        ex.printStackTrace(new PrintWriter(errors));   
+                        MyLogging.log(Level.SEVERE, "ERROR IN Closing DB Connection Method:"+ errors.toString());
+                    }
+                }
+                if(sdb != null){
+                    try { 
+                        sdb.logoff();
+                    } catch (SiebelException ex) {
+                        ex.printStackTrace(new PrintWriter(errors)); 
+                        MyLogging.log(Level.SEVERE, "ERROR IN Closing SIEBEL Connection"+ errors.toString());
+                    }
+                }
         }
                 
     }
@@ -756,8 +846,8 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
     if(MethodName.equalsIgnoreCase("ReturnSalesOrder")){
         MyLogging.log(Level.INFO,"=================IN ReturnSalesOrder=================");    
         try {
-                SiebelDataBean sdb = ApplicationsConnection.connectSiebelServer();
-                Connection conn = ApplicationsConnection.connectToEBSDatabase();
+                sdb = ApplicationsConnection.connectSiebelServer();
+                ebs_conn = ApplicationsConnection.connectToEBSDatabase();
                                 
                 SalesOrderInventory soi = new SalesOrderInventory();
                 MyLogging.log(Level.INFO,"order_number:"+input.getProperty("order_number")); 
@@ -796,7 +886,7 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                 soi.setSourceId(0);
                 SalesOrder sou = new SalesOrder();
                 MyLogging.log(Level.INFO,"Invoking Return Sales Order Invoke Method");
-                sou.doInvoke(soi,sdb,conn);
+                sou.doInvoke(soi,sdb,ebs_conn);
                 MyLogging.log(Level.INFO,"Return Sales Order Invoke Method Finished");
                 MyLogging.log(Level.INFO,"Getting return values .....");
                 List<String> rm = sou.getReturnMessages();
@@ -826,9 +916,9 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
                 ex.printStackTrace(new PrintWriter(errors));
                 MyLogging.log(Level.SEVERE, "ERROR:ReturnSalesOrder: siebel server logoff failed:"+ errors.toString());
             }finally{                              
-                if(conn != null){
+                if(ebs_conn != null){
                     try{
-                        conn.close();
+                        ebs_conn.close();
                     }catch (SQLException ex) {
                         ex.printStackTrace(new PrintWriter(errors));
                         MyLogging.log(Level.SEVERE, "ERROR:ReturnSalesOrder:Not able to close connection object:"+ errors.toString());
@@ -863,40 +953,49 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
         MyLogging.log(Level.INFO, "Item Id is: "+input.getProperty("item_id"));
         MyLogging.log(Level.INFO, "quote_line_item_id is: "+input.getProperty("quote_line_item_id"));
         //Connection conn = ApplicationsConnection.connectToEBSDatabase();
-        Connection conn = ApplicationsConnection.connectToSiebelDatabase();
-        EBSOnHandQty ehq = new EBSOnHandQty(conn);
+        siebel_conn = ApplicationsConnection.connectToSiebelDatabase();
+        EBSOnHandQty ehq = new EBSOnHandQty(siebel_conn);
         SiebelPropertySet itemLocatorPS = new SiebelPropertySet();
         try{
             itemLocatorPS = ehq.getItemLocator(input.getProperty("item_id"));        
             output.addChild(itemLocatorPS.copy());
             output.setProperty("RETURN_STATUS", "Success");
-            if(conn != null){
-                conn.close();
+            if(siebel_conn != null){
+                siebel_conn.close();
             }
         }catch(Exception e){
             e.printStackTrace(new PrintWriter(errors));
             MyLogging.log(Level.INFO, "Error in GetItemLocator: "+errors.toString());
             output.setProperty("MSG_DATA", errors.toString());
             output.setProperty("RETURN_STATUS", "Failure");
-        }
+        }finally{
+            if(siebel_conn != null){
+                 try {
+                     siebel_conn.close();
+                 } catch (SQLException ex) {
+                     ex.printStackTrace(new PrintWriter(errors));
+                     MyLogging.log(Level.SEVERE, "ERROR:CancelSalesOrder:cannot close EBS DB"+ errors.toString());
+                 }
+            } 
+        } 
     }
     
     if(MethodName.equalsIgnoreCase("CheckSalesOrderStatus")){        
         MyLogging.log(Level.INFO,"=================IN CheckSalesOrderStatus=================");
         try{
-            Connection ebs = ApplicationsConnection.connectToEBSDatabase();            
-            if(ebs == null){
+            ebs_conn = ApplicationsConnection.connectToEBSDatabase();            
+            if(ebs_conn == null){
                 throw new ConnectException();
             }
             String order_num = input.getProperty("order_num");
             MyLogging.log(Level.INFO,"Sales Order Number:"+order_num);
             SalesOrder so = new SalesOrder();
-            String booking_status = so.getSalesOrderBookingStatus(ebs,order_num);
+            String booking_status = so.getSalesOrderBookingStatus(ebs_conn,order_num);
             booking_status = toTitleCase(booking_status);
             output.setProperty("BOOKING_STATUS", booking_status);
             MyLogging.log(Level.INFO,"BOOKING_STATUS:"+booking_status);
-            if(ebs != null){
-                ebs.close();
+            if(ebs_conn != null){
+                ebs_conn.close();
             }
         }catch (SiebelBusinessServiceException ex) {
             ex.printStackTrace(new PrintWriter(errors));
@@ -907,29 +1006,38 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
         }catch (ConnectException ex) {  
             ex.printStackTrace(new PrintWriter(errors));
             MyLogging.log(Level.SEVERE, "ERROR:CheckSalesOrderStatus:cannot connect to EBS DB"+ errors.toString());
+        }finally{
+            if(ebs_conn != null){
+                 try {
+                     ebs_conn.close();
+                 } catch (SQLException ex) {
+                     ex.printStackTrace(new PrintWriter(errors));
+                     MyLogging.log(Level.SEVERE, "ERROR:CancelSalesOrder:cannot close EBS DB"+ errors.toString());
+                 }
+            } 
         }  
         
     }
     
     if(MethodName.equalsIgnoreCase("CheckPurchaseOrderStatus")){
         try{
-            Connection ebs = ApplicationsConnection.connectToEBSDatabase(); 
-            if(ebs == null){
+            ebs_conn = ApplicationsConnection.connectToEBSDatabase(); 
+            if(ebs_conn == null){
                 throw new ConnectException();
             }
             MyLogging.log(Level.INFO,"=================IN CheckPurchaseOrderStatus=================");        
             PurchaseOrder purchOrder = new PurchaseOrder();
             String purch_order_num = input.getProperty("order_num");
             MyLogging.log(Level.INFO,"Purchase Order Number:"+purch_order_num);
-            String booking_status = purchOrder.getPurchaseOrderBookingStatus(ebs,purch_order_num);
+            String booking_status = purchOrder.getPurchaseOrderBookingStatus(ebs_conn,purch_order_num);
             //String po_number = purchOrder.getPurchaseOrderNumber(ebs, purch_order_num);
-            String po_number = purchOrder.getPONumber(ebs, purch_order_num);
+            String po_number = purchOrder.getPONumber(ebs_conn, purch_order_num);
             output.setProperty("BOOKING_STATUS", booking_status);
             output.setProperty("PO_ORDER_NUM", po_number);
             MyLogging.log(Level.INFO,"BOOKING_STATUS:"+booking_status);
             MyLogging.log(Level.INFO,"PO_ORDER_NUM:"+po_number);
-            if(ebs != null){
-                ebs.close();
+            if(ebs_conn != null){
+                ebs_conn.close();
             }
         }catch (SiebelBusinessServiceException ex) {
             ex.printStackTrace(new PrintWriter(errors));
@@ -937,17 +1045,26 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
         }   catch (SQLException ex) { 
             ex.printStackTrace(new PrintWriter(errors));
             MyLogging.log(Level.SEVERE, "ERROR:CheckPurchaseOrderStatus:SQLException:"+ errors.toString());
-            }catch (ConnectException ex) {
+        }catch (ConnectException ex) {
                ex.printStackTrace(new PrintWriter(errors));
                 MyLogging.log(Level.SEVERE, "ERROR:CheckPurchaseOrderStatus:SQLException:cannot connect to EBS DB:"+ errors.toString());
-            }
+        }finally{
+            if(ebs_conn != null){
+                 try {
+                     ebs_conn.close();
+                 } catch (SQLException ex) {
+                     ex.printStackTrace(new PrintWriter(errors));
+                     MyLogging.log(Level.SEVERE, "ERROR:CancelSalesOrder:cannot close EBS DB"+ errors.toString());
+                 }
+            } 
+        }
     }
     
     if(MethodName.equalsIgnoreCase("CancelSalesOrder")){        
         MyLogging.log(Level.INFO, "================In CancelSalesOrder===================");
         String order_number = input.getProperty("ordernumber");
         MyLogging.log(Level.INFO, "order_number is: "+order_number);
-        Connection ebs_conn = ApplicationsConnection.connectToEBSDatabase();
+        ebs_conn = ApplicationsConnection.connectToEBSDatabase();
         SalesOrder ea = new SalesOrder();
         try{
             MyLogging.log(Level.INFO, "Calling Cancel Sales Order=========");
@@ -961,6 +1078,16 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
         }catch(SQLException ex){
             ex.printStackTrace(new PrintWriter(errors));
             MyLogging.log(Level.SEVERE, "ERROR:CancelSalesOrder:cannot connecting to EBS DB"+ errors.toString());
+            throw new SiebelBusinessServiceException("EBS_SQL_ERROR",errors.toString());
+        }finally{
+             if(ebs_conn != null){
+                 try {
+                     ebs_conn.close();
+                 } catch (SQLException ex) {
+                     ex.printStackTrace(new PrintWriter(errors));
+                     MyLogging.log(Level.SEVERE, "ERROR:CancelSalesOrder:cannot close EBS DB"+ errors.toString());
+                 }
+            }
         }                
     }
     
@@ -981,7 +1108,7 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
         
         
         try{
-            Connection ebs_conn = ApplicationsConnection.connectToEBSDatabase();
+            ebs_conn = ApplicationsConnection.connectToEBSDatabase();
             //SiebelDataBean sdb = ApplicationsConnection.connectSiebelServer();
             SalesOrder salesOrder = new SalesOrder();
             Order order = new Order();
@@ -1062,7 +1189,7 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
         String priceListId = input.getProperty("PriceListId");
 	String mcId = input.getProperty("MCId");
 	String filePath = input.getProperty("FileString");
-        SiebelDataBean sdb = null;// = ApplicationsConnection.connectSiebelServer();
+        //SiebelDataBean sdb = null;// = ApplicationsConnection.connectSiebelServer();
         MyLogging.log(Level.INFO, "mcId...:"+mcId);   
         MyLogging.log(Level.INFO, "filePath...:"+filePath);
         MyLogging.log(Level.INFO, "priceListId...:"+priceListId);
@@ -1079,7 +1206,9 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             MyLogging.log(Level.SEVERE, "RefreshPrices ERROR::IOException....."+ errors.toString());
         } finally{
             try {
-                sdb.logoff();
+                if(sdb!=null){
+                    sdb.logoff();
+                }                
             } catch (SiebelException ex) {
                 ex.printStackTrace(new PrintWriter(errors));                                                            
                 MyLogging.log(Level.SEVERE, "RefreshPrices ERROR::SiebelException....."+ errors.toString());
@@ -1171,16 +1300,16 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             input.setProperty("customerLastName","Isaiku");
             ns.doInvokeMethod("CreateCustomer", input, output);*/
             
-            /*input.setProperty("order_number","1-35951270");
-            input.setProperty("ebs_customer_id","54093");
-            //input.setProperty("ship_to_id","17134");
-            //input.setProperty("bill_to_id","17133");
-            input.setProperty("ship_to_id","");
-            input.setProperty("bill_to_id","");
+            input.setProperty("order_number","1-34685738");
+            input.setProperty("ebs_customer_id","5174");
+            input.setProperty("ship_to_id","85121");
+            input.setProperty("bill_to_id","85120");
+            //input.setProperty("ship_to_id","");
+            //input.setProperty("bill_to_id","");
             input.setProperty("warehouse_location_id","123");
             input.setProperty("sales_rep_id","100000040");
             input.setProperty("currency_code","NGN");
-            ns.doInvokeMethod("CreateSalesOrder", input, output);*/
+            ns.doInvokeMethod("CreateSalesOrder", input, output);
                         
             /*input.setProperty("AccountType","organization");            
             input.setProperty("OrderId","1-2KBRL");            
@@ -1225,10 +1354,10 @@ public void doInvokeMethod(String MethodName, SiebelPropertySet input, SiebelPro
             input.setProperty("sales_rep_id","100000040");
             input.setProperty("currency_code","NGN");
             ns.doInvokeMethod("ReturnSalesOrder", input, output);*/
-            input.setProperty("FileString","C:\\TEMP\\docs\\07072018.csv");
-            input.setProperty("PriceListId","1-KCMQ6");
-            input.setProperty("MCId","1-LBDBD");
-            ns.doInvokeMethod("RefreshPrices", input, output);
+            //input.setProperty("FileString","C:\\TEMP\\docs\\07072018.csv");
+            //input.setProperty("PriceListId","1-KCMQ6");
+            //input.setProperty("MCId","1-LBDBD");
+            //ns.doInvokeMethod("RefreshPrices", input, output);
         }
         catch (Exception ex) {
             StringWriter errors = new StringWriter();
